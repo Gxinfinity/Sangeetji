@@ -249,60 +249,70 @@ def isArgInt(txt) -> list:
         return [False, 0]
 
 
-@app.on_message(filters.command(["q", "r"]) & filters.reply)
+@app.on_message(filters.command(["q"]) & filters.reply)
 async def msg_quotly_cmd(self: app, ctx: Message):
-    ww = await ctx.reply_text("ᴡᴀɪᴛ ᴀ sᴇᴄᴏɴᴅ......")
-    is_reply = False
-    if ctx.command[0].endswith("r"):
-        is_reply = True
-    if len(ctx.text.split()) > 1:
-        check_arg = isArgInt(ctx.command[1])
-        if check_arg[0]:
-            if check_arg[1] < 2 or check_arg[1] > 10:
-                await ww.delete()
-                return await ctx.reply_msg("Invalid range", del_in=6)
-            try:
-                messages = [
-                    i
-                    for i in await self.get_messages(
-                        chat_id=ctx.chat.id,
-                        message_ids=range(
-                            ctx.reply_to_message.id,
-                            ctx.reply_to_message.id + (check_arg[1] + 5),
-                        ),
-                        replies=-1,
+
+    ww = await ctx.reply_text("⚡ Processing...")
+
+    try:
+        # DEFAULT = single message
+        messages = [ctx.reply_to_message]
+
+        # /q r  OR /q p  => reply + replied message
+        if len(ctx.command) > 1:
+
+            arg = ctx.command[1].lower()
+
+            if arg in ["r", "p"]:
+
+                if ctx.reply_to_message.reply_to_message:
+                    messages = [
+                        ctx.reply_to_message.reply_to_message,
+                        ctx.reply_to_message,
+                    ]
+                else:
+                    messages = [ctx.reply_to_message]
+
+            # /q 5
+            elif arg.isdigit():
+
+                count = int(arg)
+
+                if count < 1 or count > 10:
+                    await ww.delete()
+                    return await ctx.reply_text(
+                        "❌ Range should be between 1-10"
                     )
+
+                msgs = await self.get_messages(
+                    chat_id=ctx.chat.id,
+                    message_ids=range(
+                        ctx.reply_to_message.id,
+                        ctx.reply_to_message.id + count,
+                    ),
+                    replies=-1,
+                )
+
+                messages = [
+                    i for i in msgs
                     if not i.empty and not i.media
                 ]
-            except Exception:
-                return await ctx.reply_text("🤷🏻‍♂️")
-            try:
-                make_quotly = await pyrogram_to_quotly(messages, is_reply=is_reply)
-                bio_sticker = BytesIO(make_quotly)
-                bio_sticker.name = "misskatyquote_sticker.webp"
-                await ww.delete()
-                return await ctx.reply_sticker(bio_sticker)
-            except Exception:
-                await ww.delete()
-                return await ctx.reply_msg("🤷🏻‍♂️")
-    try:
-        messages_one = await self.get_messages(
-            chat_id=ctx.chat.id, message_ids=ctx.reply_to_message.id, replies=-1
+
+        make_quotly = await pyrogram_to_quotly(
+            messages,
+            is_reply=True
         )
-        messages = [messages_one]
-    except Exception:
-        await ww.delete()
-        return await ctx.reply_msg("🤷🏻‍♂️")
-    try:
-        make_quotly = await pyrogram_to_quotly(messages, is_reply=is_reply)
+
         bio_sticker = BytesIO(make_quotly)
-        bio_sticker.name = "misskatyquote_sticker.webp"
+        bio_sticker.name = "quote.webp"
+
         await ww.delete()
+
         return await ctx.reply_sticker(bio_sticker)
+
     except Exception as e:
         await ww.delete()
-        return await ctx.reply_msg(f"ERROR: {e}")
-
+        return await ctx.reply_text(f"❌ Error:\n`{e}`")
 
 __HELP__ = """
 **ǫᴜᴏᴛᴇ ɢᴇɴᴇʀᴀᴛɪᴏɴ ʙᴏᴛ ᴄᴏᴍᴍᴀɴᴅs**

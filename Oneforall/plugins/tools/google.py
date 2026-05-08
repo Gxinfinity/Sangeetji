@@ -1,8 +1,11 @@
+import asyncio
 import logging
+import random
 
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from googlesearch import search
 from pyrogram import filters
+from pyrogram.errors import FloodWait
 from pyrogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup
@@ -13,12 +16,62 @@ from Oneforall import app
 
 logging.basicConfig(level=logging.INFO)
 
+# RANDOM USER AGENTS
+USER_AGENTS = [
 
-# GOOGLE + DUCKDUCKGO SEARCH
-@app.on_message(filters.command(["google", "gle"]))
-async def google_search(client, message):
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0 Safari/537.36",
 
-    if len(message.command) < 2 and not message.reply_to_message:
+    "Mozilla/5.0 (Linux; Android 14) Chrome/123.0 Mobile Safari/537.36",
+
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari/604.1",
+
+    "Mozilla/5.0 (X11; Linux x86_64) Firefox/126.0",
+
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+]
+
+
+# SAFE EDIT
+async def safe_edit(message, text, **kwargs):
+
+    try:
+
+        await message.edit_text(
+            text,
+            **kwargs
+        )
+
+    except FloodWait as e:
+
+        await asyncio.sleep(
+            e.value
+        )
+
+        await message.edit_text(
+            text,
+            **kwargs
+        )
+
+    except Exception as e:
+
+        print(e)
+
+
+# GOOGLE + MULTI SEARCH
+@app.on_message(
+    filters.command(
+        ["google", "gle"]
+    )
+)
+async def google_search(
+    client,
+    message
+):
+
+    if (
+        len(message.command) < 2
+        and not message.reply_to_message
+    ):
 
         return await message.reply_text(
             "**Usage:**\n`/google roohi`"
@@ -30,48 +83,134 @@ async def google_search(client, message):
         and message.reply_to_message.text
     ):
 
-        query = message.reply_to_message.text
+        query = (
+            message.reply_to_message.text
+        )
 
     else:
 
-        query = " ".join(message.command[1:])
+        query = " ".join(
+            message.command[1:]
+        )
 
     msg = await message.reply_text(
-        "🔎 **Searching Multiple Browsers...**"
+        "🔎 Searching All Engines..."
     )
 
     text = (
-        "╭───────────────⭓\n"
-        "│ 🔍 **SEARCH RESULTS**\n"
-        "├───────────────\n"
+        "╭────────────────⭓\n"
+        "│ 🔍 SEARCH RESULTS\n"
+        "├────────────────\n"
         f"│ 📝 Query: `{query}`\n"
-        "╰───────────────⭓\n\n"
+        "╰────────────────⭓\n\n"
     )
 
     found = False
 
+    # GOOGLE
     try:
 
-        # GOOGLE SEARCH
         google_results = list(
             search(
                 query,
-                num_results=3,
-                sleep_interval=2
+                num_results=5,
+                sleep_interval=2,
+                advanced=True
             )
         )
 
         if google_results:
 
-            text += "🌐 **Google Results**\n\n"
+            text += (
+                "🌐 **GOOGLE**\n\n"
+            )
 
-            for index, link in enumerate(
+            for i, r in enumerate(
                 google_results,
                 start=1
             ):
 
+                try:
+
+                    title = (
+                        getattr(
+                            r,
+                            "title",
+                            "Result"
+                        )
+                    )
+
+                    url = (
+                        getattr(
+                            r,
+                            "url",
+                            str(r)
+                        )
+                    )
+
+                    desc = (
+                        getattr(
+                            r,
+                            "description",
+                            ""
+                        )
+                    )
+
+                    text += (
+                        f"➤ [{title}]({url})\n"
+                        f"└ `{desc}`\n\n"
+                    )
+
+                except:
+
+                    text += (
+                        f"➤ {r}\n\n"
+                    )
+
+            found = True
+
+    except Exception as e:
+
+        logging.exception(e)
+
+    # DUCKDUCKGO + BING
+    try:
+
+        with DDGS() as ddgs:
+
+            ddg_results = list(
+                ddgs.text(
+                    query,
+                    max_results=8
+                )
+            )
+
+        if ddg_results:
+
+            text += (
+                "🦆 **DUCKDUCKGO / BING**\n\n"
+            )
+
+            for r in ddg_results:
+
+                title = r.get(
+                    "title",
+                    "No Title"
+                )
+
+                href = r.get(
+                    "href",
+                    ""
+                )
+
+                body = r.get(
+                    "body",
+                    ""
+                )
+
                 text += (
-                    f"➤ {index}. {link}\n\n"
+                    f"➤ [{title}]({href})\n"
+                    f"└ `{body[:80]}`\n\n"
                 )
 
             found = True
@@ -80,42 +219,38 @@ async def google_search(client, message):
 
         logging.exception(e)
 
+    # YAHOO STYLE SEARCH
     try:
-
-        # DUCKDUCKGO SEARCH
-        ddg_results = []
 
         with DDGS() as ddgs:
 
-            results = ddgs.text(
-                query,
-                max_results=3
+            news_results = list(
+                ddgs.news(
+                    query,
+                    max_results=5
+                )
             )
 
-            for r in results:
-                ddg_results.append(r)
+        if news_results:
 
-        if ddg_results:
+            text += (
+                "📰 **YAHOO / NEWS**\n\n"
+            )
 
-            text += "🦆 **DuckDuckGo Results**\n\n"
+            for r in news_results:
 
-            for index, result in enumerate(
-                ddg_results,
-                start=1
-            ):
-
-                title = result.get(
+                title = r.get(
                     "title",
-                    "No Title"
+                    "News"
                 )
 
-                href = result.get(
-                    "href",
+                url = r.get(
+                    "url",
                     ""
                 )
 
                 text += (
-                    f"➤ [{title}]({href})\n\n"
+                    f"➤ [{title}]({url})\n\n"
                 )
 
             found = True
@@ -126,9 +261,15 @@ async def google_search(client, message):
 
     if not found:
 
-        return await msg.edit(
+        return await safe_edit(
+            msg,
             "❌ No results found."
         )
+
+    # LIMIT FIX
+    if len(text) > 4000:
+
+        text = text[:3900] + "\n\n..."
 
     buttons = InlineKeyboardMarkup(
         [[
@@ -139,37 +280,51 @@ async def google_search(client, message):
         ]]
     )
 
-    await msg.edit(
+    await safe_edit(
+        msg,
         text,
         disable_web_page_preview=True,
         reply_markup=buttons
     )
 
 
-# PLAY STORE SEARCH
-@app.on_message(filters.command(["app", "apps"]))
-async def playstore_search(client, message):
+# PLAY STORE
+@app.on_message(
+    filters.command(
+        ["app", "apps"]
+    )
+)
+async def playstore_search(
+    client,
+    message
+):
 
-    if len(message.command) < 2 and not message.reply_to_message:
+    if (
+        len(message.command) < 2
+        and not message.reply_to_message
+    ):
 
         return await message.reply_text(
             "**Usage:**\n`/app Spotify`"
         )
 
-    # QUERY
     if (
         message.reply_to_message
         and message.reply_to_message.text
     ):
 
-        query = message.reply_to_message.text
+        query = (
+            message.reply_to_message.text
+        )
 
     else:
 
-        query = " ".join(message.command[1:])
+        query = " ".join(
+            message.command[1:]
+        )
 
     msg = await message.reply_text(
-        "📱 **Searching Play Store...**"
+        "📱 Searching Play Store..."
     )
 
     try:
@@ -184,7 +339,8 @@ async def playstore_search(client, message):
             or "results" not in data
         ):
 
-            return await msg.edit(
+            return await safe_edit(
+                msg,
                 "❌ No app found."
             )
 
@@ -221,20 +377,20 @@ async def playstore_search(client, message):
         )
 
         caption = (
-            "╭───────────────⭓\n"
-            "│ 📱 **PLAY STORE APP**\n"
-            "├───────────────\n"
+            "╭────────────────⭓\n"
+            "│ 📱 PLAY STORE APP\n"
+            "├────────────────\n"
             f"│ 🏷 Name: [{title}]({link})\n"
             f"│ 🆔 ID: `{app_id}`\n"
             f"│ 👨‍💻 Dev: {developer}\n"
-            "╰───────────────⭓\n\n"
-            f"📝 **Description:**\n{description}"
+            "╰────────────────⭓\n\n"
+            f"📝 {description}"
         )
 
         buttons = InlineKeyboardMarkup(
             [[
                 InlineKeyboardButton(
-                    "📥 Open In Play Store",
+                    "📥 Open App",
                     url=link
                 )
             ]]
@@ -252,16 +408,22 @@ async def playstore_search(client, message):
 
             await message.reply_text(
                 caption,
-                reply_markup=buttons,
-                disable_web_page_preview=True
+                reply_markup=buttons
             )
 
         await msg.delete()
+
+    except FloodWait as e:
+
+        await asyncio.sleep(
+            e.value
+        )
 
     except Exception as e:
 
         logging.exception(e)
 
-        await msg.edit(
+        await safe_edit(
+            msg,
             f"❌ Error:\n`{e}`"
         )

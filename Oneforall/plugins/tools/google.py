@@ -12,31 +12,54 @@ logging.basicConfig(level=logging.INFO)
 async def google_search(client, message):
 
     if len(message.command) < 2 and not message.reply_to_message:
+
         return await message.reply_text(
-            "**Example:**\n`/google lord ram`"
+            "**Example:**\n`/google roohi`"
         )
 
-    if message.reply_to_message and message.reply_to_message.text:
+    if (
+        message.reply_to_message
+        and message.reply_to_message.text
+    ):
+
         query = message.reply_to_message.text
+
     else:
+
         query = " ".join(message.command[1:])
 
     msg = await message.reply_text(
-        "**🔎 Searching on Google...**"
+        "🔎 Searching Google..."
     )
 
     try:
-        results = list(search(query, advanced=True, num_results=5))
+
+        # SIMPLE SEARCH
+        results = list(
+            search(
+                query,
+                num_results=5
+            )
+        )
 
         if not results:
-            return await msg.edit("❌ No results found.")
 
-        text = f"**🔍 Search Query:** `{query}`\n\n"
+            return await msg.edit(
+                "❌ No results found."
+            )
 
-        for result in results:
+        text = (
+            f"🔍 **Google Results For:**\n"
+            f"`{query}`\n\n"
+        )
+
+        for index, link in enumerate(
+            results,
+            start=1
+        ):
+
             text += (
-                f"❍ [{result.title}]({result.url})\n"
-                f"➥ `{result.description}`\n\n"
+                f"{index}. {link}\n\n"
             )
 
         await msg.edit(
@@ -45,9 +68,12 @@ async def google_search(client, message):
         )
 
     except Exception as e:
-        logging.exception(e)
-        await msg.edit(f"❌ Error:\n`{e}`")
 
+        logging.exception(e)
+
+        await msg.edit(
+            f"❌ Error:\n`{e}`"
+        )
 
 # PLAY STORE SEARCH
 @app.on_message(filters.command(["app", "apps"]))

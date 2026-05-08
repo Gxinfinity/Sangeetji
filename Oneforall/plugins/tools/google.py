@@ -36,12 +36,12 @@ async def google_search(client, message):
 
         # SIMPLE SEARCH
         results = list(
-            search(
-                query,
-                num_results=5
-            )
-        )
-
+    search(
+        query,
+        num_results=5,
+        sleep_interval=2
+    )
+)
         if not results:
 
             return await msg.edit(

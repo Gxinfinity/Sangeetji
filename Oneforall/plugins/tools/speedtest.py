@@ -1,5 +1,7 @@
 import asyncio
-import speedtest
+import json
+import os
+import requests
 
 from pyrogram import filters
 from pyrogram.types import Message
@@ -9,30 +11,10 @@ from Oneforall import app
 from Oneforall.misc import SUDOERS
 
 
-# SPEEDTEST FUNCTION
-def run_speedtest():
-
-    test = speedtest.Speedtest()
-
-    test.get_best_server()
-
-    test.download()
-
-    test.upload()
-
-    try:
-        test.results.share()
-    except:
-        pass
-
-    return test.results.dict()
-
-
 # SAFE EDIT
 async def safe_edit(msg, text):
 
     try:
-
         await msg.edit_text(text)
 
     except FloodWait as e:
@@ -48,82 +30,89 @@ async def safe_edit(msg, text):
         pass
 
 
-# COMMAND
 @app.on_message(
     filters.command(
         ["speedtest", "spt"]
     ) & SUDOERS
 )
-async def speedtest_function(
+async def speedtest_command(
     client,
     message: Message
 ):
 
-    m = await message.reply_text(
+    msg = await message.reply_text(
         "⚡ Running Speed Test..."
     )
 
+    image_path = "speedtest.png"
+
     try:
 
-        loop = asyncio.get_event_loop()
+        process = await asyncio.create_subprocess_shell(
 
-        result = await loop.run_in_executor(
-            None,
-            run_speedtest
+            "speedtest-cli --share --json",
+
+            stdout=asyncio.subprocess.PIPE,
+
+            stderr=asyncio.subprocess.PIPE
         )
 
-        # SPEEDS
+        stdout, stderr = await process.communicate()
+
+        if stderr:
+
+            err = stderr.decode()
+
+            if err.strip():
+
+                return await safe_edit(
+                    msg,
+                    f"❌ Error:\n`{err}`"
+                )
+
+        data = json.loads(
+            stdout.decode()
+        )
+
+        # SPEED
         download = round(
-            result["download"] / 1024 / 1024,
+            data["download"] / 1024 / 1024,
             2
         )
 
         upload = round(
-            result["upload"] / 1024 / 1024,
+            data["upload"] / 1024 / 1024,
             2
         )
 
-        ping = result.get(
-            "ping",
-            "N/A"
-        )
+        ping = data["ping"]
 
         # CLIENT
-        client_data = result.get(
-            "client",
-            {}
-        )
+        isp = data["client"]["isp"]
 
-        isp = client_data.get(
-            "isp",
-            "Unknown"
-        )
-
-        country = client_data.get(
-            "country",
-            "Unknown"
-        )
+        country = data["client"]["country"]
 
         # SERVER
-        server_data = result.get(
-            "server",
-            {}
-        )
+        server = data["server"]["host"]
 
-        server = server_data.get(
-            "name",
-            "Unknown"
-        )
+        sponsor = data["server"]["sponsor"]
 
-        sponsor = server_data.get(
-            "sponsor",
-            "Unknown"
-        )
+        # SHARE IMAGE
+        share = data.get("share")
 
-        latency = server_data.get(
-            "latency",
-            "Unknown"
-        )
+        if share:
+
+            response = requests.get(
+                share,
+                timeout=30
+            )
+
+            with open(
+                image_path,
+                "wb"
+            ) as f:
+
+                f.write(response.content)
 
         caption = f"""
 ╭───────────────⭓
@@ -138,19 +127,22 @@ async def speedtest_function(
 ├───────────────
 │ 🖥 Server: {server}
 │ 🏢 Sponsor: {sponsor}
-│ ⚡ Latency: {latency}
 ╰───────────────⭓
 """
 
-        # SHARE IMAGE
-        share = result.get("share")
-
-        if share:
+        if (
+            share
+            and os.path.exists(
+                image_path
+            )
+        ):
 
             await message.reply_photo(
-                photo=share,
+                photo=image_path,
                 caption=caption
             )
+
+            os.remove(image_path)
 
         else:
 
@@ -159,13 +151,13 @@ async def speedtest_function(
             )
 
         try:
-            await m.delete()
+            await msg.delete()
         except:
             pass
 
     except Exception as e:
 
         await safe_edit(
-            m,
+            msg,
             f"❌ Error:\n`{e}`"
         )

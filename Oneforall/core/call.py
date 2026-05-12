@@ -426,6 +426,8 @@ class Call(PyTgCalls):
                 db[chat_id][0]["markup"] = "tg"
             elif "vid_" in queued:
                 mystic = await app.send_message(original_chat_id, _["call_7"])
+                file_path = None
+                file_path = None
                 try:
                     file_path, direct = await YouTube.download(
                         videoid,
@@ -433,9 +435,16 @@ class Call(PyTgCalls):
                         videoid=True,
                         video=str(streamtype) == "video",
                     )
-                except:
+                except Exception as e:
+                    print("YTDLP ERROR:", e)
                     return await mystic.edit_text(
-                        _["call_6"], disable_web_page_preview=True
+                        str(e), disable_web_page_preview=True
+                    )
+
+                if not file_path:
+                    return await mystic.edit_text(
+                        "Download failed: empty file_path",
+                        disable_web_page_preview=True
                     )
                 if video:
                     stream = MediaStream(

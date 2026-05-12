@@ -6,6 +6,9 @@ ytdl = yt_dlp.YoutubeDL({"extractor_args": {"youtube": {"player_client": ["web_c
     "format": "bestaudio/best",
     "geo_bypass": True,
     "nocheckcertificate": True,
+    "cookiefile": "/root/cookies/youtube.txt",
+    "js_runtimes": {"bun": "/root/.bun/bin/bun"},
+    "remote_components": ["ejs:github"],
 })
 
 
@@ -19,6 +22,9 @@ def download(url: str, my_hook) -> str:
         "outtmpl": "downloads/%(id)s.%(ext)s",
         "geo_bypass": True,
         "nocheckcertificate": True,
+    "cookiefile": "/root/cookies/youtube.txt",
+    "js_runtimes": {"bun": "/root/.bun/bin/bun"},
+    "remote_components": ["ejs:github"],
         "quiet": True,
         "no_warnings": True,
     }

@@ -81,6 +81,8 @@ async def play_commnd(
                 _["play_6"].format(config.DURATION_LIMIT_MIN, app.mention)
             )
         file_path = await Telegram.get_filepath(audio=audio_telegram)
+        if not file_path:
+           return await mystic.edit_text("Download failed or stream URL not found.")
         if await Telegram.download(_, message, mystic, file_path):
             message_link = await Telegram.get_link(message)
             file_name = await Telegram.get_filename(audio_telegram, audio=True)
@@ -106,7 +108,7 @@ async def play_commnd(
                 )
             except Exception as e:
                 ex_type = type(e).__name__
-                err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+                err = e if ex_type == "AssistantErr" else f"{type(e).__name__}: {str(e)}"
                 return await mystic.edit_text(err)
             return await mystic.delete()
         return
@@ -125,6 +127,8 @@ async def play_commnd(
         if video_telegram.file_size > config.TG_VIDEO_FILESIZE_LIMIT:
             return await mystic.edit_text(_["play_8"])
         file_path = await Telegram.get_filepath(video=video_telegram)
+        if not file_path:
+           return await mystic.edit_text("Download failed or stream URL not found.")
         if await Telegram.download(_, message, mystic, file_path):
             message_link = await Telegram.get_link(message)
             file_name = await Telegram.get_filename(video_telegram)
@@ -150,7 +154,7 @@ async def play_commnd(
                 )
             except Exception as e:
                 ex_type = type(e).__name__
-                err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+                err = e if ex_type == "AssistantErr" else f"{type(e).__name__}: {str(e)}"
                 return await mystic.edit_text(err)
             return await mystic.delete()
         return
@@ -283,7 +287,7 @@ async def play_commnd(
                 )
             except Exception as e:
                 ex_type = type(e).__name__
-                err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+                err = e if ex_type == "AssistantErr" else f"{type(e).__name__}: {str(e)}"
                 return await mystic.edit_text(err)
             return await mystic.delete()
         else:
@@ -296,7 +300,7 @@ async def play_commnd(
                     text=_["play_17"],
                 )
             except Exception as e:
-                return await mystic.edit_text(_["general_2"].format(type(e).__name__))
+                return await mystic.edit_text(f"{type(e).__name__}: {str(e)}")
             await mystic.edit_text(_["str_2"])
             try:
                 await stream(
@@ -313,7 +317,7 @@ async def play_commnd(
                 )
             except Exception as e:
                 ex_type = type(e).__name__
-                err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+                err = e if ex_type == "AssistantErr" else f"{type(e).__name__}: {str(e)}"
                 return await mystic.edit_text(err)
             return await play_logs(message, streamtype="M3u8 or Index Link")
     else:
@@ -369,7 +373,7 @@ async def play_commnd(
             )
         except Exception as e:
             ex_type = type(e).__name__
-            err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+            err = e if ex_type == "AssistantErr" else f"{type(e).__name__}: {str(e)}"
             return await mystic.edit_text(err)
         await mystic.delete()
         return await play_logs(message, streamtype=streamtype)
@@ -496,7 +500,7 @@ async def play_music(client, CallbackQuery, _):
         )
     except Exception as e:
         ex_type = type(e).__name__
-        err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+        err = e if ex_type == "AssistantErr" else f"{type(e).__name__}: {str(e)}"
         return await mystic.edit_text(err)
     return await mystic.delete()
 
@@ -594,7 +598,7 @@ async def play_playlists_command(client, CallbackQuery, _):
         )
     except Exception as e:
         ex_type = type(e).__name__
-        err = e if ex_type == "AssistantErr" else _["general_2"].format(ex_type)
+        err = e if ex_type == "AssistantErr" else f"{type(e).__name__}: {str(e)}"
         return await mystic.edit_text(err)
     return await mystic.delete()
 

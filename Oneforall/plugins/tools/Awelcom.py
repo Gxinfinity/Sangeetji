@@ -1,171 +1,428 @@
-import asyncio
+import os
 import time
-from logging import getLogger
-from time import time
+import random
+import tempfile
+import subprocess
 
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFont
-from pyrogram import enums, filters
-from pyrogram.types import ChatMemberUpdated
+import httpx
+import edge_tts
+import whisper
+
+from pyrogram import filters
+from pyrogram.enums import ChatAction
+from pyrogram.types import (
+    Message,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    CallbackQuery
+)
+
+from motor.motor_asyncio import AsyncIOMotorClient
 
 from Oneforall import app
-from Oneforall.utils.database import get_assistant
 
-# Define a dictionary to track the last message timestamp for each user
-user_last_message_time = {}
-user_command_count = {}
-# Define the threshold for command spamming (e.g., 20 commands within 60 seconds)
-SPAM_THRESHOLD = 2
-SPAM_WINDOW_SECONDS = 5
+# ================= CONFIG =================
 
-random_photo = [
-    "https://telegra.ph/file/1949480f01355b4e87d26.jpg",
-    "https://telegra.ph/file/3ef2cc0ad2bc548bafb30.jpg",
-    "https://telegra.ph/file/a7d663cd2de689b811729.jpg",
-    "https://telegra.ph/file/6f19dc23847f5b005e922.jpg",
-    "https://telegra.ph/file/2973150dd62fd27a3a6ba.jpg",
-]
-# --------------------------------------------------------------------------------- #
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+MODEL = "deepseek/deepseek-chat"
 
+USER_COOLDOWN = {}
 
-LOGGER = getLogger(__name__)
+HTTP = httpx.AsyncClient(
+    follow_redirects=True,
+    timeout=45.0
+)
 
+# ================= DATABASE =================
 
-class WelDatabase:
-    def __init__(self):
-        self.data = {}
+mongo_client = AsyncIOMotorClient(MONGO_URL)
 
-    async def find_one(self, chat_id):
-        return chat_id in self.data
+db = mongo_client["ChatBotDB"]
 
-    async def add_wlcm(self, chat_id):
-        if chat_id not in self.data:
-            self.data[chat_id] = {"state": "on"}  # Default state is "on"
-
-    async def rm_wlcm(self, chat_id):
-        if chat_id in self.data:
-            del self.data[chat_id]
+chats_col = db["chats"]
 
 
-wlcm = WelDatabase()
+async def is_chatbot_on(chat_id):
+
+    chat = await chats_col.find_one(
+        {"chat_id": chat_id}
+    )
+
+    return chat.get("status", False) if chat else False
 
 
-class temp:
-    ME = None
-    CURRENT = 2
-    CANCEL = False
-    MELCOW = {}
-    U_NAME = None
-    B_NAME = None
+async def toggle_chatbot(chat_id, status):
+
+    await chats_col.update_one(
+        {"chat_id": chat_id},
+        {"$set": {"status": status}},
+        upsert=True
+    )
 
 
-def circle(pfp, size=(500, 500), brightness_factor=10):
-    pfp = pfp.resize(size, Image.ANTIALIAS).convert("RGBA")
-    pfp = ImageEnhance.Brightness(pfp).enhance(brightness_factor)
-    bigsize = (pfp.size[0] * 3, pfp.size[1] * 3)
-    mask = Image.new("L", bigsize, 0)
-    draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0) + bigsize, fill=255)
-    mask = mask.resize(pfp.size, Image.ANTIALIAS)
-    mask = ImageChops.darker(mask, pfp.split()[-1])
-    pfp.putalpha(mask)
-    return pfp
+# ================= AI =================
 
+async def ask_ai(prompt):
 
-def welcomepic(pic, user, chatname, id, uname, brightness_factor=1.3):
-    background = Image.open("Oneforall/assets/wel2.png")
-    pfp = Image.open(pic).convert("RGBA")
-    pfp = circle(pfp, brightness_factor=brightness_factor)
-    pfp = pfp.resize((825, 824))
-    draw = ImageDraw.Draw(background)
-    font = ImageFont.truetype("Oneforall/assets/font.ttf", size=110)
-    welcome_font = ImageFont.truetype("Oneforall/assets/font.ttf", size=60)
-    draw.text((2100, 1420), f"ID: {id}", fill=(12000, 12000, 12000), font=font)
-    pfp_position = (1990, 435)
-    background.paste(pfp, pfp_position, pfp)
-    background.save(f"downloads/welcome#{id}.png")
-    return f"downloads/welcome#{id}.png"
+    if not OPENROUTER_API_KEY:
+        return "❌ OPENROUTER_API_KEY missing!"
 
-
-@app.on_message(filters.command("awelcome") & ~filters.private)
-async def auto_state(_, message):
-    user_id = message.from_user.id
-    current_time = time()
-    # Update the last message timestamp for the user
-    last_message_time = user_last_message_time.get(user_id, 0)
-
-    if current_time - last_message_time < SPAM_WINDOW_SECONDS:
-        # If less than the spam window time has passed since the last message
-        user_last_message_time[user_id] = current_time
-        user_command_count[user_id] = user_command_count.get(user_id, 0) + 1
-        if user_command_count[user_id] > SPAM_THRESHOLD:
-            # Block the user if they exceed the threshold
-            hu = await message.reply_text(
-                f"**{message.from_user.mention} ᴘʟᴇᴀsᴇ ᴅᴏɴᴛ ᴅᴏ sᴘᴀᴍ, ᴀɴᴅ ᴛʀʏ ᴀɢᴀɪɴ ᴀғᴛᴇʀ 5 sᴇᴄ**"
-            )
-            await asyncio.sleep(3)
-            await hu.delete()
-            return
-    else:
-        # If more than the spam window time has passed, reset the command count and update the message timestamp
-        user_command_count[user_id] = 1
-        user_last_message_time[user_id] = current_time
-
-    usage = "**ᴜsᴀɢᴇ:**\n**⦿ /awelcome [on|off]**"
-    if len(message.command) == 1:
-        return await message.reply_text(usage)
-    chat_id = message.chat.id
-    user = await app.get_chat_member(message.chat.id, message.from_user.id)
-    if user.status in (
-        enums.ChatMemberStatus.ADMINISTRATOR,
-        enums.ChatMemberStatus.OWNER,
-    ):
-        A = await wlcm.find_one(chat_id)
-        state = message.text.split(None, 1)[1].strip().lower()
-        if state == "off":
-            if A:
-                await message.reply_text(
-                    "**ᴀssɪsᴛᴀɴᴛ ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ᴀʟʀᴇᴀᴅʏ ᴅɪsᴀʙʟᴇᴅ !**"
-                )
-            else:
-                await wlcm.add_wlcm(chat_id)
-                await message.reply_text(
-                    f"**ᴅɪsᴀʙʟᴇᴅ ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ɪɴ** {message.chat.title} ʙʏ ᴀssɪsᴛᴀɴᴛ"
-                )
-        elif state == "on":
-            if not A:
-                await message.reply_text("**ᴇɴᴀʙʟᴇᴅ ᴀssɪsᴛᴀɴᴛ ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ.**")
-            else:
-                await wlcm.rm_wlcm(chat_id)
-                await message.reply_text(
-                    f"**ᴇɴᴀʙʟᴇᴅ ᴀssɪsᴛᴀɴᴛ ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ ɪɴ ** {message.chat.title}"
-                )
-        else:
-            await message.reply_text(usage)
-    else:
-        await message.reply(
-            "**sᴏʀʀʏ ᴏɴʟʏ ᴀᴅᴍɪɴs ᴄᴀɴ ᴇɴᴀʙʟᴇ ᴀssɪsᴛᴀɴᴛ ᴡᴇʟᴄᴏᴍᴇ ɴᴏᴛɪғɪᴄᴀᴛɪᴏɴ!**"
-        )
-
-
-@app.on_chat_member_updated(filters.group, group=-2)
-async def greet_new_members(_, member: ChatMemberUpdated):
     try:
 
-        chat_id = member.chat.id
-        userbot = await get_assistant(chat_id)
-        count = await app.get_chat_members_count(chat_id)
-        A = await wlcm.find_one(chat_id)
-        if A:
-            return
-
-        user = (
-            member.new_chat_member.user if member.new_chat_member else member.from_user
+        response = await HTTP.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": MODEL,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a cute smart Indian girl chatting naturally in Hindi. "
+                            "Reply shortly, casually and naturally like a real human. "
+                            "Never say you are AI or chatbot."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            }
         )
 
-        # Add the modified condition here
-        if member.new_chat_member and not member.old_chat_member:
-            welcome_text = f"""**Wᴇʟᴄᴏᴍᴇ** {user.mention}\n**@{user.username}**"""
-            await asyncio.sleep(3)
-            await userbot.send_message(chat_id, text=welcome_text)
+        if response.status_code != 200:
+            return f"❌ API Error: {response.status_code}"
+
+        data = response.json()
+
+        return data["choices"][0]["message"]["content"][:4000]
+
     except Exception as e:
+
+        return f"❌ Error: {e}"
+
+
+# ================= COOLDOWN =================
+
+def cooldown(user_id):
+
+    now = time.time()
+
+    if now - USER_COOLDOWN.get(user_id, 0) < 3:
+        return False
+
+    USER_COOLDOWN[user_id] = now
+
+    return True
+
+
+# ================= CHATBOT PANEL =================
+
+@app.on_message(filters.command("chatbot"))
+async def chatbot_panel(_, message: Message):
+
+    status = await is_chatbot_on(message.chat.id)
+
+    text = (
+        "🤖 **ChatBot Control Panel**\n\n"
+        f"Status: {'✅ Enabled' if status else '❌ Disabled'}"
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    "Toggle ChatBot",
+                    callback_data="toggle_chatbot"
+                )
+            ]
+        ]
+    )
+
+    await message.reply_text(
+        text,
+        reply_markup=keyboard
+    )
+
+
+@app.on_callback_query(filters.regex("toggle_chatbot"))
+async def toggle_callback(_, query: CallbackQuery):
+
+    chat_id = query.message.chat.id
+
+    current = await is_chatbot_on(chat_id)
+
+    await toggle_chatbot(chat_id, not current)
+
+    new_status = (
+        "✅ Enabled"
+        if not current
+        else "❌ Disabled"
+    )
+
+    await query.message.edit_text(
+        f"🤖 **ChatBot Control Panel**\n\nStatus: {new_status}",
+        reply_markup=query.message.reply_markup
+    )
+
+
+# ================= /ASK =================
+
+@app.on_message(filters.command("ask"))
+async def ask_command(_, message: Message):
+
+    if not message.from_user:
         return
+
+    if not cooldown(message.from_user.id):
+
+        return await message.reply_text(
+            "✋ Slow down bro."
+        )
+
+    if len(message.command) < 2:
+
+        return await message.reply_text(
+            "Usage: /ask hello"
+        )
+
+    query = message.text.split(None, 1)[1]
+
+    await app.send_chat_action(
+        message.chat.id,
+        ChatAction.TYPING
+    )
+
+    reply = await ask_ai(query)
+
+    await message.reply_text(
+        reply,
+        disable_web_page_preview=True
+    )
+
+    await send_emotion_sticker(
+        message,
+        reply
+    )
+
+
+# ================= AUTO CHATBOT =================
+
+@app.on_message(
+    filters.text
+    & ~filters.bot
+    & ~filters.command(["ask", "chatbot"])
+)
+async def auto_chatbot(_, message: Message):
+
+    if not message.from_user:
+        return
+
+    if not await is_chatbot_on(message.chat.id):
+        return
+
+    if not cooldown(message.from_user.id):
+        return
+
+    await app.send_chat_action(
+        message.chat.id,
+        ChatAction.TYPING
+    )
+
+    reply = await ask_ai(message.text)
+
+    await message.reply_text(
+        reply,
+        disable_web_page_preview=True
+    )
+
+    await send_emotion_sticker(
+        message,
+        reply
+    )
+
+
+# ================= STICKERS =================
+
+EMOTION_STICKERS = {
+
+    "happy": [
+        "CAACAgUAAxkBAAED7-RqBc5ZE5OA2Nz5V_7-PhBV2KQIVwACpREAAlNJqVU8pPE0pVx6YjsE"
+    ],
+
+    "sad": [
+        "CAACAgIAAxkBAAED7-JqBc2jeoS0-fiTIQABD6tfTRqTvt0AAuZqAAKLAdFKErLbHiQR86s7BA"
+    ],
+
+    "angry": [
+        "CAACAgUAAxkBAAED79pqBcu-ItRqPWX7fmhydTdutAdxEAACEBIAAm09aVdzd6Agos8ZbTsE"
+    ],
+
+    "love": [
+        "CAACAgEAAxkBAAED7-BqBc1Nt7Pzr2rAMmAfYSyVIluHSgACJwYAAlGxkEfjp2zKLaDR5TsE"
+    ]
+}
+
+
+def detect_emotion(text):
+
+    text = text.lower()
+
+    if any(
+        x in text
+        for x in [
+            "love",
+            "pyar",
+            "baby",
+            "miss",
+            "cute"
+        ]
+    ):
+        return "love"
+
+    if any(
+        x in text
+        for x in [
+            "sad",
+            "cry",
+            "dukhi",
+            "hurt",
+            "alone",
+            "rona"
+        ]
+    ):
+        return "sad"
+
+    if any(
+        x in text
+        for x in [
+            "angry",
+            "mad",
+            "gussa",
+            "abuse"
+        ]
+    ):
+        return "angry"
+
+    return "happy"
+
+
+async def send_emotion_sticker(message, text):
+
+    try:
+
+        if random.randint(1, 4) != 1:
+            return
+
+        emotion = detect_emotion(text)
+
+        if emotion in EMOTION_STICKERS:
+
+            await message.reply_sticker(
+                random.choice(
+                    EMOTION_STICKERS[emotion]
+                )
+            )
+
+    except Exception as e:
+
+        print(f"Sticker Error: {e}")
+
+
+# ================= VOICE REPLY =================
+
+@app.on_message(filters.voice & ~filters.bot)
+async def voice_ai_reply(_, message: Message):
+
+    if not message.from_user:
+        return
+
+    if not await is_chatbot_on(message.chat.id):
+        return
+
+    try:
+
+        await app.send_chat_action(
+            message.chat.id,
+            ChatAction.TYPING
+        )
+
+        # download
+        voice_path = await message.download()
+
+        wav_path = f"{voice_path}.wav"
+
+        # convert
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                voice_path,
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                "-c:a",
+                "pcm_s16le",
+                wav_path
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+
+        # whisper
+        model = whisper.load_model("tiny")
+
+        result = model.transcribe(
+            wav_path,
+            language="hi",
+            fp16=False
+        )
+
+        user_text = result["text"]
+
+        # ai reply
+        ai_reply = await ask_ai(
+            f"Reply only in Hindi naturally: {user_text}"
+        )
+
+        # temp file
+        with tempfile.NamedTemporaryFile(
+            suffix=".mp3",
+            delete=False
+        ) as tmp:
+
+            tts_file = tmp.name
+
+        # tts
+        communicate = edge_tts.Communicate(
+            text=ai_reply,
+            voice="hi-IN-SwaraNeural",
+            rate="-10%",
+            pitch="-2Hz"
+        )
+
+        await communicate.save(tts_file)
+
+        # send voice
+        await message.reply_voice(
+            tts_file,
+            caption="🎙 AI Voice Reply"
+        )
+
+        await send_emotion_sticker(
+            message,
+            ai_reply
+        )
+
+    except Exception as e:
+
+        await message.reply_text(
+            f"❌ Voice Error: {e}"
+        )

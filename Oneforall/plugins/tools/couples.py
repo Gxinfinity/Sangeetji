@@ -14,20 +14,18 @@ from telegraph import upload_file
 from Oneforall import app
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━#
-# PATH FIX (NO MORE ERRORS)
+# SAFE PATHS
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━#
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 
-ROOT_DIR = os.path.abspath(
-    os.path.join(BASE_DIR, "../../")
+BASE_DIR = os.path.abspath(
+    os.path.join(PLUGIN_DIR, "../../")
 )
 
-ASSETS_DIR = os.path.join(ROOT_DIR, "assets")
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 
-DOWNLOADS_DIR = os.path.abspath(
-    os.path.join(ROOT_DIR, "../downloads")
-)
+DOWNLOADS_DIR = os.path.join(BASE_DIR, "downloads")
 
 os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 
@@ -39,10 +37,20 @@ BG_IMAGES = [
 ]
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━#
+# AUTO CREATE FALLBACK IMAGE
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━#
+
+if not os.path.exists(UPIC):
+
+    fallback = Image.new("RGB", (500, 500), (25, 25, 25))
+    fallback.save(UPIC)
+
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━#
 # PREMIUM BUTTON FUNCTION
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━#
 
 def btn(text, emoji_id, style=ButtonStyle.DEFAULT, **kwargs):
+
     try:
         return InlineKeyboardButton(
             text=text,
@@ -50,7 +58,9 @@ def btn(text, emoji_id, style=ButtonStyle.DEFAULT, **kwargs):
             style=style,
             **kwargs
         )
-    except TypeError:
+
+    except Exception:
+
         return InlineKeyboardButton(
             text=text,
             **kwargs
@@ -105,7 +115,7 @@ def couple_panel():
     return InlineKeyboardMarkup(buttons)
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━#
-# DATE FUNCTIONS
+# DATE
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━#
 
 def dt():
@@ -156,7 +166,7 @@ async def send_couple(message):
     N1 = user1.mention
     N2 = user2.mention
 
-    # PHOTOS
+    # USER PHOTOS
 
     photo1 = user1.photo
     photo2 = user2.photo
@@ -164,11 +174,17 @@ async def send_couple(message):
     # SAFE DOWNLOAD
 
     try:
+
         if photo1:
+
             p1 = await app.download_media(
                 photo1.big_file_id,
-                file_name=f"{DOWNLOADS_DIR}/pfp1.png",
+                file_name=os.path.join(
+                    DOWNLOADS_DIR,
+                    f"pfp1_{cid}.png"
+                ),
             )
+
         else:
             p1 = UPIC
 
@@ -176,11 +192,17 @@ async def send_couple(message):
         p1 = UPIC
 
     try:
+
         if photo2:
+
             p2 = await app.download_media(
                 photo2.big_file_id,
-                file_name=f"{DOWNLOADS_DIR}/pfp2.png",
+                file_name=os.path.join(
+                    DOWNLOADS_DIR,
+                    f"pfp2_{cid}.png"
+                ),
             )
+
         else:
             p2 = UPIC
 
@@ -191,19 +213,28 @@ async def send_couple(message):
 
     try:
         img1 = Image.open(p1).convert("RGBA")
+
     except Exception:
         img1 = Image.open(UPIC).convert("RGBA")
 
     try:
         img2 = Image.open(p2).convert("RGBA")
+
     except Exception:
         img2 = Image.open(UPIC).convert("RGBA")
 
-    # RANDOM BACKGROUND
+    # RANDOM BG
 
-    bg = random.choice(BG_IMAGES)
+    existing_bg = [x for x in BG_IMAGES if os.path.exists(x)]
+
+    if not existing_bg:
+        existing_bg = [UPIC]
+
+    bg = random.choice(existing_bg)
 
     img = Image.open(bg).convert("RGBA")
+
+    # RESIZE
 
     img1 = img1.resize((437, 437))
     img2 = img2.resize((437, 437))
@@ -228,13 +259,16 @@ async def send_couple(message):
     img.paste(img1, (116, 160), img1)
     img.paste(img2, (789, 160), img2)
 
-    # SAVE
+    # OUTPUT
 
-    output = f"test_{cid}.png"
+    output = os.path.join(
+        DOWNLOADS_DIR,
+        f"couple_{cid}.png"
+    )
 
     img.save(output)
 
-    # RANDOM PREMIUM TEXT
+    # RANDOM TEXT
 
     lolipop = random.choice([
         "🍭 ʟᴏʟʟɪᴘᴏᴘ ᴘʀᴇᴍɪᴜᴍ ᴄᴏᴜᴘʟᴇ 🍭",
@@ -260,6 +294,8 @@ async def send_couple(message):
 {lolipop}
 """
 
+    # SEND PHOTO
+
     await message.reply_photo(
         photo=output,
         caption=TXT,
@@ -270,21 +306,28 @@ async def send_couple(message):
 
     try:
         upload_file(output)
+
     except Exception:
         pass
 
     # CLEANUP
 
-    files = [
-        f"{DOWNLOADS_DIR}/pfp1.png",
-        f"{DOWNLOADS_DIR}/pfp2.png",
+    cleanup = [
+        p1,
+        p2,
         output,
     ]
 
-    for file in files:
+    for file in cleanup:
+
         try:
-            if file and os.path.exists(file):
+
+            if (
+                file != UPIC
+                and os.path.exists(file)
+            ):
                 os.remove(file)
+
         except Exception:
             pass
 
@@ -296,6 +339,7 @@ async def send_couple(message):
 async def couples(_, message):
 
     if message.chat.type == ChatType.PRIVATE:
+
         return await message.reply_text(
             "❌ ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ᴏɴʟʏ ᴡᴏʀᴋs ɪɴ ɢʀᴏᴜᴘs."
         )
@@ -305,34 +349,38 @@ async def couples(_, message):
     )
 
     try:
+
         await send_couple(message)
+
         await msg.delete()
 
     except Exception as e:
-        await msg.edit(f"❌ Error : {e}")
+
+        await msg.edit(
+            f"❌ Error : {e}"
+        )
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━#
-# NEW COUPLE BUTTON
+# NEW COUPLE
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━#
 
 @app.on_callback_query(filters.regex("new_couple"))
 async def new_couple(_, query):
 
     try:
+
         await query.answer(
             "💞 ɢᴇɴᴇʀᴀᴛɪɴɢ ɴᴇᴡ ᴄᴏᴜᴘʟᴇ...",
             cache_time=1
         )
 
-        try:
-            await query.message.delete()
-        except Exception:
-            pass
-
         await send_couple(query.message)
 
     except Exception as e:
-        print(f"NEW COUPLE ERROR: {e}")
+
+        print(
+            f"NEW COUPLE ERROR: {e}"
+        )
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━#
 # COLOR BUTTON
@@ -341,7 +389,7 @@ async def new_couple(_, query):
 @app.on_callback_query(filters.regex("couple_color"))
 async def couple_color(_, query):
 
-    color_messages = [
+    colors = [
         "❤️ ʀᴇᴅ ʟᴏᴠᴇ ᴄᴏᴜᴘʟᴇ ❤️",
         "💜 ᴘᴜʀᴘʟᴇ ʜᴇᴀʀᴛ ᴄᴏᴜᴘʟᴇ 💜",
         "💚 ɢʀᴇᴇɴ ᴀᴇꜱᴛʜᴇᴛɪᴄ ᴄᴏᴜᴘʟᴇ 💚",
@@ -350,7 +398,7 @@ async def couple_color(_, query):
     ]
 
     await query.answer(
-        random.choice(color_messages),
+        random.choice(colors),
         show_alert=True,
     )
 

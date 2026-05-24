@@ -8,3 +8,7 @@ __pycache__/
 *.mp4
 *.bak
 *.png
+
+downloads/
+*.mp3
+*.m4a

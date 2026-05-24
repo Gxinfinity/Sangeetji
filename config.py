@@ -10,11 +10,11 @@ from pyrogram import filters
 load_dotenv()
 
 # Get this value from my.telegram.org/apps
-API_ID = int(os.getenv("API_ID", "35218869"))
-API_HASH = os.getenv("API_HASH", "80baadcfd00a39a0ff1f5f529d23156f")
+API_ID = int(os.getenv("API_ID", "39910911"))
+API_HASH = os.getenv("API_HASH", "5fcc9f70e30cca15e206178ffaafe92d")
 
 # Get your token from @BotFather on Telegram.
-BOT_TOKEN = os.getenv("BOT_TOKEN","")
+BOT_TOKEN = os.getenv("BOT_TOKEN","7993275748:AAFgXfF-YJ14rQnSOYOOGi6mkiqjIdLg7Nc")
 
 YOUTUBE_API_KEY = os.getenv("")
 # OpenAI Token
@@ -22,7 +22,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Get your mongo url from cloud.mongodb.com
 MONGO_DB_URI = os.getenv("MONGO_DB_URI", "mongodb+srv://knight4563:knight4563@cluster0.a5br0se.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-MUSIC_BOT_NAME = os.getenv("MUSIC_BOT_NAME", "roohi_queen_bot")
+MUSIC_BOT_NAME = os.getenv("MUSIC_BOT_NAME", "sangeet_music_rbot")
 PRIVATE_BOT_MODE = os.getenv("PRIVATE_BOT_MODE", None)
 
 DURATION_LIMIT_MIN = int(os.getenv("DURATION_LIMIT", 100000))
@@ -32,7 +32,7 @@ LOGGER_ID = int(os.getenv("LOGGER_ID", -1003809966719))
 
 # Get this value from @BRANDRD_ROBOT on Telegram by /id
 OWNER_ID = int(os.getenv("OWNER_ID", "8676835917"))
-SUDO_USERS = list(map(int, os.getenv("SUDO_USERS", "8564072723").split()))
+SUDO_USERS = list(map(int, os.getenv("SUDO_USERS", "5961413788").split()))
 
 ## Fill these variables if you're deploying on heroku.
 
@@ -53,7 +53,7 @@ GIT_TOKEN = os.getenv(
     "GIT_TOKEN", None
 )  # Fill this variable if your upstream repository is private
 
-SUPPORT_CHANNEL = os.getenv("SUPPORT_CHANNEL", "https://t.me/PhilosSoul")
+SUPPORT_CHANNEL = os.getenv("SUPPORT_CHANNEL", "https://t.me/true_entertainments")
 SUPPORT_CHAT = os.getenv("SUPPORT_CHAT", "https://t.me/chattingzone0")
 
 # Set this to True if you want the assistant to automatically leave chats after an interval
@@ -86,7 +86,7 @@ TG_VIDEO_FILESIZE_LIMIT = int(os.getenv("TG_VIDEO_FILESIZE_LIMIT", 1073741824))
 
 
 # Get your pyrogram v2 session from @BRANDEDSTRINGSESSION_BOT on Telegram
-STRING1 = os.getenv("STRING_SESSION",  "")
+STRING1 = os.getenv("STRING_SESSION",  "AQJg_f8AN4_ucwMwQnLlkOWELgQAHtWK06Cca7r9dWUFum9QxNDuPuQBp4-3nW8T8P-vgn6CVd2gS2_MYrC27RhIfTMWyHl0h5RrEySlWAeNEVuQO71c7s1zEr3B7-rJ5q4K1FbqJYCS_i11uSMjJLc9Y2HkQtmB2Mmky64CqOo47Qd8ETHp3uyj2EtZS4_ruwlo-aRuQUROrx33N9blaH7Cduggha5evcP9wqw5fz7qEX5-zjqoqmtawl0arUMhqZeDuKxosqzJYnhPhPhwk6XlrC7NIBPzB0BXqOJJ1nZJ9PtP5rSdQUnZls0xViTWkNKGDKtGcS4vrGCW_2DFPpZ9YYhBgwAAAAH9N4X7AA")
 STRING2 = os.getenv("STRING_SESSION2", None)
 STRING3 = os.getenv("STRING_SESSION3", None)
 STRING4 = os.getenv("STRING_SESSION4", None)
@@ -120,13 +120,13 @@ if START_IMG_URL:
     START_IMG_URL = random.choice(START_IMG_URL.split(","))
 else:
     START_IMG_URL = random.choice([
-        "https://graph.org/file/2f8e61c55d311070339c8-17b572b5c7c8ad0907.jpg",
-        "https://graph.org/file/1c82daf46ac2ec57b7827-3a05aa863a378ed34a.jpg",
+        "https://graph.org/file/d9be7bdf2f3dbf8e88f52-ff2374e8c4f85997b3.jpg",
+        "https://graph.org/file/4aeb3ef1671983f30e69c-9ca5694f580763b921.jpg",
 
-"https://graph.org/file/2f8e61c55d311070339c8-17b572b5c7c8ad0907.jpg",
+"https://graph.org/file/e11347d14fb92b5f2324f-65b31a2367cc3a7ca1.jpg",
 
-"https://graph.org/file/1c82daf46ac2ec57b7827-3a05aa863a378ed34a.jpg",
-        "https://graph.org/file/2f8e61c55d311070339c8-17b572b5c7c8ad0907.jpg"
+"https://graph.org/file/19367543206fb909ff495-af3ccef6bc96f6069a.jpg",
+        "https://graph.org/file/bfd0c31ed8c828bc6ea70-05c48386ee07ecd1da.jpg"
     ])
 
 def time_to_seconds(time):

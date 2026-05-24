@@ -123,7 +123,7 @@ async def start_pm(client, message: Message, _):
     await asyncio.sleep(1.3)
     await accha.edit("🔊 ᴘʟєᴧꜱє ᴡᴧɪᴛ... ʟєᴛ ᴛʜє ᴠɪʙєꜱ ʙєɢɪη 💫")
     await asyncio.sleep(0.2)
-    await accha.edit("🎶✨ ʀσσʜɪ ϻᴜꜱɪᴄ ꜱᴛᴧʀᴛɪηɢ ✨🎶")
+    await accha.edit("🎶✨ 𝑴𝒖𝒔𝒊𝒄𝒍𝒚 ϻᴜꜱɪᴄ ꜱᴛᴧʀᴛɪηɢ ✨🎶")
     await asyncio.sleep(0.2)
     await accha.edit("__.ʜєʟʟσ ʜσω ᴧʀє ʏσᴜ 🩷 .__")
     await asyncio.sleep(0.2)
